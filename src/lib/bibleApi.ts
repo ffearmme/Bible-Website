@@ -99,7 +99,7 @@ export const getChapterContent = async (translation: string, book: string, chapt
     
     // We transform the result to match our UI expected structure
     const verses = res.data.verses;
-    const htmlText = verses.map(v => `<span class="v">${v.verse}</span> ${v.text}`).join(' ');
+    const htmlText = verses.map((v: { verse: number; text: string }) => `<span class="v">${v.verse}</span> ${v.text}`).join(' ');
 
     return {
       reference: res.data.reference,
