@@ -621,3 +621,21 @@
 .animate-slide-in-right {
   animation: slide-in-right 0.3s ease forwards;
 }
+@media (max-width: 640px) {
+  .post-card {
+    padding: 1rem 0.8rem;
+    gap: 1rem;
+  }
+  
+  .post-scripture {
+    padding: 0.8rem 1rem;
+  }
+  
+  .post-actions {
+    gap: 1rem;
+  }
+  
+  .comment-content-wrapper {
+    padding: 0.6rem 0.8rem;
+  }
+}

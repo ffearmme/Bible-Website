@@ -724,7 +724,13 @@
   align-items: flex-start;
   gap: 2rem;
   position: relative;
-  padding: 0 4rem 4rem 4rem; /* Side and bottom padding moved here */
+  padding: 0 4rem 4rem 4rem; /* Standard desktop padding */
+}
+
+@media (max-width: 1024px) {
+  .reader-content-wrapper {
+    padding: 0 0.5rem 4rem 0.5rem; /* Drastically reduced side padding for smaller desktop/tablet views */
+  }
 }
 
 .arrow-nav-btn {
@@ -769,7 +775,7 @@
 }
 
 /* --- MOBILE RESPONSIVE (SLIM TOP NAV & NO SCROLL) --- */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   html, body {
     overflow-x: visible !important;
     width: 100%;
@@ -870,7 +876,10 @@
   }
 
   .reader-content {
-    padding: 0 1.25rem 5rem 1.25rem;
+    padding: 0 0.5rem 5rem 0.5rem;
+    max-width: none !important;
+    width: 100%;
+    margin: 0;
   }
 
   .verse-selectable {
@@ -897,8 +906,9 @@
 
 
   .reader-content {
-    padding: 0 0.75rem 5rem 0.75rem; /* Shrunk padding to maximize space */
+    padding: 0 0.4rem 5rem 0.4rem; /* Shrunk padding to maximize space */
     width: 100%;
+    max-width: none !important; /* Allow it to grow wider than 800px on tablet */
     margin: 0;
   }
 
@@ -1022,6 +1032,10 @@
 
   .testament-section {
     margin-bottom: 0;
+  }
+
+  .reader-content-wrapper {
+    padding: 0 0.25rem 4rem 0.25rem; /* Drastically reduced vertical/side padding for mobile */
   }
 }
 

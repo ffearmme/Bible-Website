@@ -125,7 +125,7 @@ button {
 
 @media (max-width: 768px) {
   .main-content {
-    padding: 1rem 1rem 5rem 1rem; /* Extra bottom padding for mobile bar */
+    padding: 1rem 0.25rem 5rem 0.25rem; /* Drastically reduced horizontal padding for mobile */
     width: 100%;
   }
 

@@ -446,8 +446,17 @@
   }
   
   .profile-info-section, .profile-content {
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  .feed-item {
+    padding: 1rem 0.8rem;
+  }
+  
+  .profile-stats-row {
+    gap: 1.25rem;
+    padding: 1rem 0.5rem;
   }
   
   .tab-item {
