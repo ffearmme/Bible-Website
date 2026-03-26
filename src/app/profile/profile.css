@@ -457,8 +457,11 @@
     padding: 1rem 0;
   }
 
+  .profile-actions-row {
+    margin-top: 45px; /* Alignment with avatar offset */
+  }
+
   .edit-profile-button {
-    margin-top: 50px; /* Push it down from the banner overlap */
     font-size: 0.8rem;
     padding: 0.5rem 1rem;
   }
