@@ -463,15 +463,21 @@ function CommentSection({ postId, user, userProfile, commentCount }: { postId: s
   );
 }
 
-function CommentItem({ comment, allComments, postId, user, userProfile, depth = 0 }: { 
+function CommentItem({ comment, allComments, postId, user, userProfile, depth = 0, forceOpen }: { 
   comment: any, 
   allComments: any[],
   postId: string, 
   user: any, 
   userProfile: any,
-  depth?: number 
+  depth?: number,
+  forceOpen?: boolean
 }) {
-  const [showReplies, setShowReplies] = useState(true);
+  const [showReplies, setShowReplies] = useState(forceOpen || false);
+
+  useEffect(() => {
+    if (forceOpen) setShowReplies(true);
+  }, [forceOpen]);
+
   const [isReplying, setIsReplying] = useState(false);
   const [replyContent, setReplyContent] = useState("");
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
@@ -620,6 +626,7 @@ function CommentItem({ comment, allComments, postId, user, userProfile, depth = 
                 user={user}
                 userProfile={userProfile}
                 depth={depth + 1}
+                forceOpen={forceOpen || showReplies}
               />
             ))}
           </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Globe, ChevronLeft, ChevronRight, MessageSquare, Share2, Search, X, Bookmark, Send, Check, Highlighter } from "lucide-react";
+import { ChevronDown, Globe, Book, ChevronLeft, ChevronRight, MessageSquare, Share2, Search, X, Bookmark, Send, Check, Highlighter } from "lucide-react";
 import "./bible.css";
 import axios from "axios";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -154,13 +154,13 @@ function BibleReader() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setMinimized } = useSidebar();
-  const [openTestament, setOpenTestament] = useState<string | null>("New Testament");
+  const [openTestament, setOpenTestament] = useState<string | null>(null);
   const [currentTranslation, setCurrentTranslation] = useState("web");
-  const [currentBook, setCurrentBook] = useState("John");
-  const [stagingBook, setStagingBook] = useState("John");
+  const [currentBook, setCurrentBook] = useState<string | null>(null);
+  const [stagingBook, setStagingBook] = useState<string | null>(null);
   const [currentChapter, setCurrentChapter] = useState(1);
   const [content, setContent] = useState<ChapterContent | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [selectedVerses, setSelectedVerses] = useState<any[]>([]);
@@ -507,7 +507,7 @@ function BibleReader() {
 
   const handleNextChapter = () => {
     clearSelection();
-    const maxChapters = BIBLE_METADATA[currentBook] || 50;
+    const maxChapters = currentBook ? BIBLE_METADATA[currentBook] || 50 : 50;
     if (currentChapter < maxChapters) setCurrentChapter(currentChapter + 1);
   };
 
@@ -517,6 +517,10 @@ function BibleReader() {
 
   useEffect(() => {
     async function fetchBible() {
+      if (!currentBook) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       clearSelection();
@@ -567,10 +571,14 @@ function BibleReader() {
     );
     if (filteredBooks.length === 0 && searchQuery) return null;
     return (
-      <div className="testament-section" style={{ marginBottom: "1rem" }}>
+      <div className="testament-section">
         <button
           className={`testament-tab flex-between ${isExpanded ? "active" : ""}`}
-          onClick={() => setOpenTestament(isExpanded ? null : title)}
+          onClick={() => {
+            const next = isExpanded ? null : title;
+            setOpenTestament(next);
+            // On mobile, if we switch testaments, we might want to scroll?
+          }}
         >
           <span className="testament-title">{title}</span>
           <ChevronDown
@@ -678,6 +686,23 @@ function BibleReader() {
               <div className="spinner"></div>
               <p className="text-muted">Loading {currentBook} {currentChapter}...</p>
             </div>
+          ) : !currentBook ? (
+            <div className="bible-welcome-screen animate-fade-in">
+              <div className="welcome-inner">
+                <div className="welcome-icon-ring">
+                  <Book size={48} className="text-accent" />
+                </div>
+                <h1 className="heading-1">Explore the Word</h1>
+                <p className="text-muted">Select a book from the navigator to begin reading and sharing reflections with the community.</p>
+                <button 
+                  className="post-button mobile-only" 
+                  style={{ marginTop: "1rem" }}
+                  onClick={() => setMobileNavOpen(true)}
+                >
+                  Browse Books
+                </button>
+              </div>
+            </div>
           ) : error ? (
             <div className="flex-center" style={{ height: "60vh", flexDirection: "column", textAlign: "center", padding: "2rem" }}>
               <p className="text-muted">{error}</p>
@@ -706,7 +731,7 @@ function BibleReader() {
                 <button
                   className="arrow-nav-btn next-btn"
                   onClick={(e) => { e.stopPropagation(); handleNextChapter(); }}
-                  disabled={currentChapter >= (BIBLE_METADATA[currentBook] || 50)}
+                  disabled={!currentBook || currentChapter >= (BIBLE_METADATA[currentBook as string] || 50)}
                 >
                   <ChevronRight size={24} />
                 </button>
