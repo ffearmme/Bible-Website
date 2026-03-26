@@ -997,3 +997,193 @@
     box-shadow: 0 0 0px rgba(201, 162, 99, 0);
   }
 }
+
+/* =========================================
+   COMMUNITY VERSE ANNOTATIONS
+   ========================================= */
+
+/* Wrapper row per verse — inline by default so text flow is preserved */
+.verse-row {
+  display: inline;
+  position: relative;
+}
+
+/* The annotation column sits to the right of the verse */
+.verse-annotation-col {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 2px;
+  margin-right: 4px; /* Space before next verse */
+}
+
+/* The compact button trigger */
+.verse-annotation-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  width: 20px;
+  height: 20px;
+  background: var(--accent-glow);
+  color: var(--accent-primary);
+  border: 1px solid rgba(201, 162, 99, 0.3);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  opacity: 0.8;
+}
+
+.verse-annotation-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+  background: rgba(201, 162, 99, 0.2);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 8px rgba(201, 162, 99, 0.3);
+}
+
+.annotation-count-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--accent-primary);
+  color: var(--bg-surface);
+  font-size: 0.6rem;
+  font-weight: 800;
+  min-width: 12px;
+  height: 12px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* MOBILE ADJUSTMENTS */
+@media (max-width: 768px) {
+  .verse-annotation-btn {
+    width: 16px;
+    height: 16px;
+    padding: 3px;
+  }
+  
+  .verse-annotation-btn svg {
+    width: 10px !important;
+    height: 10px !important;
+  }
+}
+
+/* =========================================
+   ANNOTATION EXPAND PANEL (OVERLAY)
+   ========================================= */
+
+.annotation-expand-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  z-index: 200000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.annotation-expand-panel {
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: #121214;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8);
+  animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.annotation-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 1rem;
+}
+
+.annotation-panel-ref {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.annotation-panel-close {
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.annotation-panel-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ff4b4b;
+}
+
+.annotation-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.annotation-panel-item {
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--accent-primary);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.annotation-panel-author {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.annotation-panel-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.annotation-panel-handle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.annotation-panel-content {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  margin: 0;
+  white-space: pre-wrap;
+}
+

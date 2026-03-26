@@ -18,6 +18,7 @@ import {
   deleteDoc, 
   getDocs, 
   where,
+  orderBy,
   addDoc,
   serverTimestamp
 } from "firebase/firestore";
@@ -177,6 +178,9 @@ function BibleReader() {
   const [isPosting, setIsPosting] = useState(false);
   const [targetVerse, setTargetVerse] = useState<string | null>(null);
   const [highlightedVerses, setHighlightedVerses] = useState<Set<string>>(new Set());
+  // verseAnnotations: Map from verse number -> list of posts
+  const [verseAnnotations, setVerseAnnotations] = useState<Map<number, any[]>>(new Map());
+  const [activeAnnotation, setActiveAnnotation] = useState<{ verse: number; posts: any[] } | null>(null);
 
   const { user, userProfile } = useAuth();
 
@@ -246,6 +250,35 @@ function BibleReader() {
       return () => unsub();
     }
   }, [user]);
+
+  // Fetch community posts for the current chapter and build verseAnnotations map
+  useEffect(() => {
+    const prefix = `${currentBook} ${currentChapter}:`;
+    const q = query(
+      collection(db, "posts"),
+      where("scripture.reference", ">=", prefix),
+      where("scripture.reference", "<", prefix + "\uFFFF"),
+      orderBy("scripture.reference")
+    );
+    const unsub = onSnapshot(q, (snapshot) => {
+      const map = new Map<number, any[]>();
+      snapshot.docs.forEach((d) => {
+        const post = { id: d.id, ...d.data() };
+        const ref: string = (post as any).scripture?.reference || "";
+        // Parse verse number from e.g. "John 3:16" or "John 3:16-18"
+        const match = ref.match(/:([\d]+)/);
+        if (match) {
+          const verseNum = parseInt(match[1], 10);
+          if (!map.has(verseNum)) map.set(verseNum, []);
+          map.get(verseNum)!.push(post);
+        }
+      });
+      setVerseAnnotations(map);
+    }, (err) => {
+      console.error("Annotation listener error:", err);
+    });
+    return () => unsub();
+  }, [currentBook, currentChapter]);
 
   const clearSelection = () => {
     setSelectedVerses([]);
@@ -682,17 +715,41 @@ function BibleReader() {
               <div className="reader-content-wrapper">
                 <div className="reader-content">
                   <div className="chapter-text-api">
-                    {content?.rawVerses?.map((v: any) => (
-                      <span
-                        key={v.verse}
-                        id={`v-${v.verse}`}
-                        className={`verse-selectable ${selectedVerses.some((s) => s.verse === v.verse) ? "active" : ""} ${highlightedVerses.has(`${currentBook}-${currentChapter}-${v.verse}`) ? "highlighted" : ""}`}
-                        onClick={(e) => toggleVerse(v, e)}
-                      >
-                        <sup className="v">{v.verse}</sup>
-                        <span className="v-text">{v.text}</span>
-                      </span>
-                    ))}
+                    {content?.rawVerses?.map((v: any) => {
+                      const annotationPosts = verseAnnotations.get(v.verse) || [];
+                      return (
+                        <span
+                          key={v.verse}
+                          className="verse-row"
+                        >
+                          <span
+                            id={`v-${v.verse}`}
+                            className={`verse-selectable ${selectedVerses.some((s) => s.verse === v.verse) ? "active" : ""} ${highlightedVerses.has(`${currentBook}-${currentChapter}-${v.verse}`) ? "highlighted" : ""}`}
+                            onClick={(e) => toggleVerse(v, e)}
+                          >
+                            <sup className="v">{v.verse}</sup>
+                            <span className="v-text">{v.text}</span>
+                          </span>
+                          {annotationPosts.length > 0 && (
+                            <span className="verse-annotation-col">
+                              <button
+                                className="verse-annotation-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveAnnotation({ verse: v.verse, posts: annotationPosts });
+                                }}
+                                title={`${annotationPosts.length} reflection${annotationPosts.length > 1 ? 's' : ''} on this verse`}
+                              >
+                                <MessageSquare size={13} fill="currentColor" />
+                                {annotationPosts.length > 1 && (
+                                  <span className="annotation-count-badge">{annotationPosts.length}</span>
+                                )}
+                              </button>
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -768,6 +825,43 @@ function BibleReader() {
         handlePost={handlePost}
         onCancel={clearSelection}
       />
+
+      {/* Annotation expand panel */}
+      {activeAnnotation && isMounted && createPortal(
+        <div
+          className="annotation-expand-overlay"
+          onClick={() => setActiveAnnotation(null)}
+        >
+          <div
+            className="annotation-expand-panel glass-panel animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="annotation-panel-header">
+              <span className="annotation-panel-ref">
+                {currentBook} {currentChapter}:{activeAnnotation.verse} — Community Reflections
+              </span>
+              <button
+                className="annotation-panel-close"
+                onClick={() => setActiveAnnotation(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="annotation-panel-list">
+              {activeAnnotation.posts.map((post: any) => (
+                <div key={post.id} className="annotation-panel-item">
+                  <div className="annotation-panel-author">
+                    <span className="annotation-panel-name">{post.userName}</span>
+                    <span className="annotation-panel-handle">{post.userHandle}</span>
+                  </div>
+                  <p className="annotation-panel-content">{post.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
