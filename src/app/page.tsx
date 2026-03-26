@@ -113,10 +113,12 @@ export default function ExplorePage() {
                 </div>
               </div>
               
-              <div className="post-scripture">
-                <span className="scripture-ref">{post.scripture?.reference}</span>
-                <p className="scripture-text">"{post.scripture?.text}"</p>
-              </div>
+              {post.scripture && (
+                <div className="post-scripture">
+                  {post.scripture.reference && <span className="scripture-ref">{post.scripture.reference}</span>}
+                  {post.scripture.text && <p className="scripture-text">"{post.scripture.text}"</p>}
+                </div>
+              )}
               
               <p className="post-content">{post.content}</p>
               
