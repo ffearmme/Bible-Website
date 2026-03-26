@@ -202,8 +202,36 @@ function BibleReader() {
 
       // Clear the query params from the URL so they don't stick around
       router.replace('/bible', { scroll: false });
+    } else {
+      // Restore from localStorage if no URL params
+      try {
+        const lastBook = localStorage.getItem("lastBibleBook");
+        const lastChapter = localStorage.getItem("lastBibleChapter");
+        if (lastBook) {
+          setCurrentBook(lastBook);
+          setStagingBook(lastBook);
+        }
+        if (lastChapter) {
+          setCurrentChapter(parseInt(lastChapter));
+        }
+      } catch (e) {
+        console.error("Failed to restore Bible state from localStorage", e);
+      }
     }
   }, [searchParams, router]);
+
+  // Persist Bible state to localStorage
+  useEffect(() => {
+    if (!isMounted) return;
+    try {
+      if (currentBook) {
+        localStorage.setItem("lastBibleBook", currentBook);
+      }
+      localStorage.setItem("lastBibleChapter", currentChapter.toString());
+    } catch (e) {
+      console.error("Failed to save Bible state to localStorage", e);
+    }
+  }, [currentBook, currentChapter, isMounted]);
 
   // Load saved refs
   useEffect(() => {
