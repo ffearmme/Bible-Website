@@ -4,7 +4,7 @@ import { Heart, MessageCircle, Share2, MoreHorizontal, MessageSquare, Pin, Trash
 import "./explore.css";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, setDoc, deleteDoc, serverTimestamp, addDoc } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, setDoc, deleteDoc, serverTimestamp, addDoc, increment } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import UserAvatar from "@/components/UserAvatar";
@@ -374,14 +374,15 @@ export default function ExplorePage() {
 }
 
 function CommentSection({ postId, user, userProfile, commentCount }: { postId: string, user: any, userProfile: any, commentCount: number }) {
-  const [comments, setComments] = useState<any[]>([]);
+  const [allComments, setAllComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    // Fetch all comments and replies into a single flat list
     const q = query(collection(db, "posts", postId, "comments"), orderBy("createdAt", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setComments(snapshot.docs.map(doc => ({
+      setAllComments(snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         time: doc.data().createdAt?.toDate() ? new Date(doc.data().createdAt.toDate()).toLocaleDateString() : "Just now"
@@ -404,12 +405,13 @@ function CommentSection({ postId, user, userProfile, commentCount }: { postId: s
         userHandle: userProfile?.handle || "@user",
         userPhoto: userProfile?.avatar || user.photoURL || "",
         content: newComment.trim(),
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        parentId: null // Root comment
       };
 
       await addDoc(collection(db, "posts", postId, "comments"), commentData);
       await updateDoc(doc(db, "posts", postId), {
-        comments: commentCount + 1
+        comments: increment(1)
       });
       setNewComment("");
     } catch (err) {
@@ -419,27 +421,23 @@ function CommentSection({ postId, user, userProfile, commentCount }: { postId: s
     }
   };
 
+  // Only render the top-level comments at the base
+  const rootComments = allComments.filter(c => !c.parentId);
+
   return (
     <div className="comments-section animate-fade-in">
       <div className="comments-list">
-        {comments.map(comment => (
-          <div key={comment.id} className="comment-item">
-            <UserAvatar 
-              uid={comment.uid} 
-              photoURL={comment.userPhoto} 
-              name={comment.userName}
-              className="comment-avatar"
-            />
-            <div className="comment-content-wrapper">
-              <div className="comment-header">
-                <span className="comment-user">{comment.userName}</span>
-                <span className="comment-time">{comment.time}</span>
-              </div>
-              <p className="comment-text">{comment.content}</p>
-            </div>
-          </div>
+        {rootComments.map(comment => (
+          <CommentItem 
+            key={comment.id} 
+            comment={comment} 
+            allComments={allComments}
+            postId={postId}
+            user={user}
+            userProfile={userProfile}
+          />
         ))}
-        {comments.length === 0 && (
+        {allComments.length === 0 && (
           <p className="no-comments-text">No reflections yet. Be the first to share your thoughts!</p>
         )}
       </div>
@@ -461,6 +459,172 @@ function CommentSection({ postId, user, userProfile, commentCount }: { postId: s
           </button>
         </form>
       )}
+    </div>
+  );
+}
+
+function CommentItem({ comment, allComments, postId, user, userProfile, depth = 0 }: { 
+  comment: any, 
+  allComments: any[],
+  postId: string, 
+  user: any, 
+  userProfile: any,
+  depth?: number 
+}) {
+  const [showReplies, setShowReplies] = useState(true);
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(comment.content);
+
+  // Function to count all descendants for accurate total reply count
+  const countAllDescendants = (parentId: string, list: any[]): number => {
+    const directChildren = list.filter(c => c.parentId === parentId);
+    return directChildren.reduce((acc, child) => acc + 1 + countAllDescendants(child.id, list), 0);
+  };
+
+  // Filter for direct children of this comment for rendering
+  const childReplies = allComments.filter(c => c.parentId === comment.id);
+  const totalReplies = countAllDescendants(comment.id, allComments);
+
+  const handleUpdate = async () => {
+    if (!editContent.trim()) return;
+    try {
+      await updateDoc(doc(db, "posts", postId, "comments", comment.id), {
+        content: editContent.trim(),
+        updatedAt: serverTimestamp()
+      });
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Error updating comment:", err);
+    }
+  };
+
+  const handlePostReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !replyContent.trim()) return;
+    setIsSubmittingReply(true);
+    try {
+      const replyData = {
+        uid: user.uid,
+        userName: userProfile?.name || user.displayName || "Scholar",
+        userHandle: userProfile?.handle || "@user",
+        userPhoto: userProfile?.avatar || user.photoURL || "",
+        content: replyContent.trim(),
+        createdAt: serverTimestamp(),
+        parentId: comment.id // Store reference to parent
+      };
+
+      await addDoc(collection(db, "posts", postId, "comments"), replyData);
+      
+      const postRef = doc(db, "posts", postId);
+      await updateDoc(postRef, {
+        comments: increment(1)
+      });
+
+      setReplyContent("");
+      setIsReplying(false);
+      setShowReplies(true);
+    } catch (err) {
+      console.error("Error posting reply:", err);
+    } finally {
+      setIsSubmittingReply(false);
+    }
+  };
+
+  return (
+    <div className="comment-thread" style={{ marginLeft: depth > 0 ? (depth < 4 ? '1.5rem' : '0.5rem') : 0 }}>
+      <div className={`comment-container ${depth > 0 ? 'is-reply' : ''}`}>
+        <div className="comment-item">
+          <UserAvatar 
+            uid={comment.uid} 
+            photoURL={comment.userPhoto} 
+            name={comment.userName}
+            className="comment-avatar"
+            size={depth > 0 ? 28 : 32}
+          />
+          <div className="comment-content-wrapper">
+            <div className="comment-header">
+              <div className="comment-user-info">
+                <span className="comment-user">{comment.userName}</span>
+                <span className="comment-time">{comment.time} {comment.updatedAt && "(edited)"}</span>
+              </div>
+              {user && user.uid === comment.uid && !isEditing && (
+                <button className="comment-edit-btn" onClick={() => setIsEditing(true)}>
+                  <Edit3 size={14} />
+                </button>
+              )}
+            </div>
+            
+            {isEditing ? (
+              <div className="comment-edit-mode">
+                <textarea 
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  className="comment-edit-textarea"
+                  autoFocus
+                />
+                <div className="comment-edit-actions">
+                  <button className="btn-text-small" onClick={() => setIsEditing(false)}>Cancel</button>
+                  <button className="btn-primary-small" onClick={handleUpdate}>Save</button>
+                </div>
+              </div>
+            ) : (
+              <p className="comment-text">{comment.content}</p>
+            )}
+
+            {!isEditing && (
+              <div className="comment-footer">
+                {user && (
+                  <button className="comment-action-link" onClick={() => setIsReplying(!isReplying)}>
+                    Reply
+                  </button>
+                )}
+                {totalReplies > 0 && (
+                  <button className="comment-action-link" onClick={() => setShowReplies(!showReplies)}>
+                    {showReplies ? "Hide Replies" : `Show ${totalReplies} ${totalReplies === 1 ? 'Reply' : 'Replies'}`}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {isReplying && (
+          <form className="reply-composer animate-fade-in" onSubmit={handlePostReply}>
+            <textarea
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+              placeholder={`Reply to ${comment.userName}...`}
+              rows={1}
+              autoFocus
+            />
+            <div className="reply-actions">
+              <button type="button" className="btn-text-small" onClick={() => setIsReplying(false)}>Cancel</button>
+              <button type="submit" className="btn-primary-small" disabled={isSubmittingReply || !replyContent.trim()}>
+                Post
+              </button>
+            </div>
+          </form>
+        )}
+
+        {showReplies && childReplies.length > 0 && (
+          <div className="replies-list animate-slide-in-right">
+            {childReplies.map(reply => (
+              <CommentItem 
+                key={reply.id} 
+                comment={reply} 
+                allComments={allComments}
+                postId={postId}
+                user={user}
+                userProfile={userProfile}
+                depth={depth + 1}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
