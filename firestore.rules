@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // User profile and sub-collections
+    match /users/{userId} {
+      // Users can read/write their own profile
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // User-specific collections
+      match /reflections/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /saved_items/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /following/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /highlights/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Followers can be read by anyone, but written only if logged in 
+      // (and usually via a controlled function, but here we allow direct write for simplicity)
+      match /followers/{docId} {
+        allow read: if true;
+        allow write: if request.auth != null;
+      }
+    }
+    
+    // Global posts for the Explore page
+    match /posts/{postId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
