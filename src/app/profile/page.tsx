@@ -6,6 +6,7 @@ import "./profile.css";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import UserAvatar from "@/components/UserAvatar";
+import UsersModal from "@/components/UsersModal";
 import { db } from "@/lib/firebase";
 import { 
   collection, 
@@ -47,6 +48,9 @@ export default function ProfilePage() {
   const [dataLoading, setDataLoading] = useState(true);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
+  const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<'followers' | 'following'>('followers');
+  const [modalTitle, setModalTitle] = useState("");
 
   // Sync data from Firestore
   useEffect(() => {
@@ -222,6 +226,11 @@ export default function ProfilePage() {
       console.error("Failed to parse source for navigation:", e);
     }
   };
+  const openUsersModal = (type: 'followers' | 'following') => {
+    setModalType(type);
+    setModalTitle(type === 'followers' ? "Your Followers" : "Users You Follow");
+    setIsUsersModalOpen(true);
+  };
 
   if (authLoading) {
     return <div className="profile-loading">Loading account...</div>;
@@ -312,16 +321,24 @@ export default function ProfilePage() {
             <span className="stat-value">{reflections.length}</span>
             <span className="stat-label">Posts</span>
           </div>
-          <div className="stat-item">
+          <div className="stat-item" onClick={() => openUsersModal('following')}>
             <span className="stat-value">{followingCount}</span>
             <span className="stat-label">Following</span>
           </div>
-          <div className="stat-item">
+          <div className="stat-item" onClick={() => openUsersModal('followers')}>
             <span className="stat-value">{followerCount}</span>
             <span className="stat-label">Followers</span>
           </div>
         </div>
       </div>
+
+      <UsersModal 
+        isOpen={isUsersModalOpen} 
+        onClose={() => setIsUsersModalOpen(false)} 
+        type={modalType} 
+        targetUid={user.uid} 
+        title={modalTitle} 
+      />
 
       <div className="profile-tabs-wrapper">
         <div className="profile-tabs">

@@ -4,17 +4,20 @@ import { Heart, MessageCircle, Share2, MoreHorizontal, MessageSquare } from "luc
 import "./explore.css";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, setDoc, deleteDoc, serverTimestamp, addDoc } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import UserAvatar from "@/components/UserAvatar";
+import Link from "next/link";
 
 export default function ExplorePage() {
   const [posts, setPosts] = useState<any[]>([]);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const router = useRouter();
+  const [copySuccess, setCopySuccess] = useState<string | null>(null);
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Listen to following to show Follow/Unfollow state
@@ -49,16 +52,42 @@ export default function ExplorePage() {
     return () => unsubscribe();
   }, []);
 
-  const handleLike = async (postId: string, currentLikes: number) => {
+  const handleLike = async (postId: string, currentLikes: number, likedBy: string[] = []) => {
     if (!user) return;
+    const isLiked = likedBy.includes(user.uid);
     try {
       const postRef = doc(db, "posts", postId);
       await updateDoc(postRef, {
-        likes: currentLikes + 1
+        likes: isLiked ? Math.max(0, currentLikes - 1) : currentLikes + 1,
+        likedBy: isLiked ? arrayRemove(user.uid) : arrayUnion(user.uid)
       });
     } catch (e) {
       console.error("Error liking post:", e);
     }
+  };
+
+  const handleShare = async (post: any) => {
+    const textToCopy = `${post.userName} shared a reflection:\n\n${post.scripture ? `"${post.scripture.text}" (${post.scripture.reference})\n\n` : ""}${post.content}\n\nShared from Bible Website`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Bible Reflection", text: textToCopy, url: window.location.href });
+      } else {
+        await navigator.clipboard.writeText(textToCopy);
+        setCopySuccess(post.id);
+        setTimeout(() => setCopySuccess(null), 2000);
+      }
+    } catch (err) {
+      console.error("Error sharing:", err);
+    }
+  };
+
+  const toggleComments = (postId: string) => {
+    setExpandedComments(prev => {
+      const next = new Set(prev);
+      if (next.has(postId)) next.delete(postId);
+      else next.add(postId);
+      return next;
+    });
   };
 
   const handleFollow = async (targetUid: string) => {
@@ -94,7 +123,7 @@ export default function ExplorePage() {
           posts.map(post => (
             <article key={post.id} className="post-card glass-panel card-hover">
               <div className="post-header flex-between">
-                <div className="post-user flex-center">
+                <Link href={`/profile/${post.uid}`} className="post-user flex-center" style={{ textDecoration: 'none', cursor: 'pointer' }}>
                   <UserAvatar 
                     uid={post.uid} 
                     initials={post.userInitials} 
@@ -105,7 +134,7 @@ export default function ExplorePage() {
                     <span className="user-name">{post.userName}</span>
                     <span className="user-handle">{post.userHandle} • {post.time}</span>
                   </div>
-                </div>
+                </Link>
                 <div className="post-header-actions">
                   {user && user.uid !== post.uid && (
                     <button 
@@ -129,16 +158,30 @@ export default function ExplorePage() {
               <p className="post-content">{post.content}</p>
               
               <div className="post-actions">
-                <button className="action-btn" onClick={() => handleLike(post.id, post.likes)}>
-                  <Heart size={18} /> <span>{post.likes}</span>
+                <button 
+                  className={`action-btn ${user && post.likedBy?.includes(user.uid) ? 'active' : ''}`} 
+                  onClick={() => handleLike(post.id, post.likes, post.likedBy)}
+                >
+                  <Heart size={18} fill={user && post.likedBy?.includes(user.uid) ? "currentColor" : "none"} /> 
+                  <span>{post.likes}</span>
                 </button>
-                <button className="action-btn">
+                <button className="action-btn" onClick={() => toggleComments(post.id)}>
                   <MessageCircle size={18} /> <span>{post.comments}</span>
                 </button>
-                <button className="action-btn">
-                  <Share2 size={18} /> <span>Share</span>
+                <button className="action-btn" onClick={() => handleShare(post)}>
+                  <Share2 size={18} className={copySuccess === post.id ? "text-success" : ""} /> 
+                  <span>{copySuccess === post.id ? "Copied!" : "Share"}</span>
                 </button>
               </div>
+
+              {expandedComments.has(post.id) && (
+                <CommentSection 
+                  postId={post.id} 
+                  user={user} 
+                  userProfile={userProfile}
+                  commentCount={post.comments} 
+                />
+              )}
             </article>
           ))
         ) : (
@@ -159,6 +202,98 @@ export default function ExplorePage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function CommentSection({ postId, user, userProfile, commentCount }: { postId: string, user: any, userProfile: any, commentCount: number }) {
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const q = query(collection(db, "posts", postId, "comments"), orderBy("createdAt", "asc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setComments(snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        time: doc.data().createdAt?.toDate() ? new Date(doc.data().createdAt.toDate()).toLocaleDateString() : "Just now"
+      })));
+    }, (error) => {
+      console.error("Comments listener error:", error);
+    });
+    return () => unsubscribe();
+  }, [postId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !newComment.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      const commentData = {
+        uid: user.uid,
+        userName: userProfile?.name || user.displayName || "Scholar",
+        userHandle: userProfile?.handle || "@user",
+        userPhoto: userProfile?.avatar || user.photoURL || "",
+        content: newComment.trim(),
+        createdAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, "posts", postId, "comments"), commentData);
+      await updateDoc(doc(db, "posts", postId), {
+        comments: commentCount + 1
+      });
+      setNewComment("");
+    } catch (err) {
+      console.error("Error adding comment:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="comments-section animate-fade-in">
+      <div className="comments-list">
+        {comments.map(comment => (
+          <div key={comment.id} className="comment-item">
+            <UserAvatar 
+              uid={comment.uid} 
+              photoURL={comment.userPhoto} 
+              name={comment.userName}
+              className="comment-avatar"
+            />
+            <div className="comment-content-wrapper">
+              <div className="comment-header">
+                <span className="comment-user">{comment.userName}</span>
+                <span className="comment-time">{comment.time}</span>
+              </div>
+              <p className="comment-text">{comment.content}</p>
+            </div>
+          </div>
+        ))}
+        {comments.length === 0 && (
+          <p className="no-comments-text">No reflections yet. Be the first to share your thoughts!</p>
+        )}
+      </div>
+
+      {user && (
+        <form className="comment-composer" onSubmit={handleSubmit}>
+          <textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Add a reflection..."
+            rows={2}
+          />
+          <button 
+            type="submit" 
+            className="comment-submit-btn"
+            disabled={isSubmitting || !newComment.trim()}
+          >
+            {isSubmitting ? "..." : "Post"}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

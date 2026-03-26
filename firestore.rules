@@ -9,30 +9,54 @@ service cloud.firestore {
       
       // User-specific collections
       match /reflections/{docId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Reflections are public posts shown on profiles
+        allow read: if true;
+        allow write: if request.auth != null && request.auth.uid == userId;
       }
       match /saved_items/{docId} {
+        // Saved items are private to each scholar
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
       match /following/{docId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Publicly viewable following lists, but only the user can modify who they follow
+        allow read: if true;
+        allow write: if request.auth != null && request.auth.uid == userId;
       }
       match /highlights/{docId} {
+        // Highlighted verses are private study data
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
       
-      // Followers can be read by anyone, but written only if logged in 
-      // (and usually via a controlled function, but here we allow direct write for simplicity)
+      // Followers list is public, but only the person following can add/remove themselves
       match /followers/{docId} {
         allow read: if true;
-        allow write: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == docId;
       }
     }
     
-    // Global posts for the Explore page
+    // Global posts for the Explore feed
     match /posts/{postId} {
+      // Posts can be read by anyone for the feed
       allow read: if true;
-      allow write: if request.auth != null;
+      
+      // Only authenticated users can create posts, and their UID must match
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      
+      // Updates allowed for likes/comments/following count (broad for now)
+      allow update: if request.auth != null;
+      
+      // Only the author can delete their post
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        // Comments are public
+        allow read: if true;
+        // Authenticated users can comment
+        allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+        // Only the author can edit or delete their comment
+        allow update, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      }
     }
   }
 }
