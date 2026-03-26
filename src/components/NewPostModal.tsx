@@ -5,6 +5,7 @@ import { X, Send, Image as ImageIcon, Smile, Paperclip, Check } from "lucide-rea
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import UserAvatar from "./UserAvatar";
 import "./NewPostModal.css";
 
 interface NewPostModalProps {
@@ -29,6 +30,12 @@ export default function NewPostModal({ isOpen, onClose }: NewPostModalProps) {
 
   if (!isOpen) return null;
 
+  const getSafeInitials = (name?: string) => {
+    if (!name || name.trim() === "") return "U";
+    const initials = name.split(/\s+/).filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    return (initials && initials !== "NA") ? initials : initials || "U";
+  };
+
   const handlePost = async () => {
     if (!user || !content.trim()) return;
     setIsPosting(true);
@@ -38,9 +45,8 @@ export default function NewPostModal({ isOpen, onClose }: NewPostModalProps) {
         uid: user.uid,
         userName: userProfile?.name || user.displayName || "Scholar",
         userHandle: userProfile?.handle || "@user",
-        userInitials: userProfile?.name 
-          ? userProfile.name.split(/\s+/).filter(Boolean).map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() 
-          : "U",
+        userInitials: getSafeInitials(userProfile?.name || user.displayName),
+        userPhoto: userProfile?.avatar || user.photoURL || "",
         content: content.trim(),
         createdAt: serverTimestamp(),
         likes: 0,
@@ -70,10 +76,6 @@ export default function NewPostModal({ isOpen, onClose }: NewPostModalProps) {
     }
   };
 
-  const getInitials = (name: string) => {
-    return name.split(/\s+/).filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase();
-  };
-
   return (
     <div className="new-post-modal-overlay" onClick={onClose}>
       <div 
@@ -98,13 +100,12 @@ export default function NewPostModal({ isOpen, onClose }: NewPostModalProps) {
 
         <div className="new-post-body">
           <div className="user-post-info">
-            <div className="user-post-avatar">
-              {userProfile?.avatar ? (
-                <img src={userProfile.avatar} alt={userProfile.name} />
-              ) : (
-                <span>{getInitials(userProfile?.name || user?.displayName || "U")}</span>
-              )}
-            </div>
+            <UserAvatar 
+              uid={user?.uid || ""} 
+              photoURL={userProfile?.avatar || user?.photoURL || ""} 
+              name={userProfile?.name || user?.displayName || "User"}
+              className="user-post-avatar"
+            />
             <span className="user-display-name">{userProfile?.name || user?.displayName || "Scholar"}</span>
           </div>
 

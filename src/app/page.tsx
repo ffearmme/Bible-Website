@@ -7,6 +7,7 @@ import { db } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import UserAvatar from "@/components/UserAvatar";
 
 export default function ExplorePage() {
   const [posts, setPosts] = useState<any[]>([]);
@@ -94,7 +95,12 @@ export default function ExplorePage() {
             <article key={post.id} className="post-card glass-panel card-hover">
               <div className="post-header flex-between">
                 <div className="post-user flex-center">
-                  <div className="avatar flex-center">{post.userInitials || "U"}</div>
+                  <UserAvatar 
+                    uid={post.uid} 
+                    initials={post.userInitials} 
+                    photoURL={post.userPhoto} 
+                    name={post.userName} 
+                  />
                   <div className="user-info">
                     <span className="user-name">{post.userName}</span>
                     <span className="user-handle">{post.userHandle} • {post.time}</span>

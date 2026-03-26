@@ -5,6 +5,7 @@ import { CheckCircle, Calendar, MessageSquare, Users, Bookmark, X, Image as Imag
 import "./profile.css";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import UserAvatar from "@/components/UserAvatar";
 import { db } from "@/lib/firebase";
 import { 
   collection, 
@@ -197,7 +198,9 @@ export default function ProfilePage() {
   };
 
   const getInitials = (name: string) => {
-    return name.split(/\s+/).filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    if (!name || name.trim() === "") return "U";
+    const initials = name.split(/\s+/).filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    return (initials && initials !== "NA") ? initials : initials || "U";
   };
 
   const goToBible = (source: string) => {
@@ -253,13 +256,12 @@ export default function ProfilePage() {
         ></div>
         <div className="profile-info-section">
           <div className="profile-avatar-wrapper">
-            <div className="profile-avatar">
-              {profile.avatar ? (
-                <img src={profile.avatar} alt={profile.name} className="avatar-img" />
-              ) : (
-                <span className="avatar-initials">{getInitials(profile.name)}</span>
-              )}
-            </div>
+            <UserAvatar 
+              uid={user.uid} 
+              photoURL={profile.avatar} 
+              name={profile.name} 
+              className="profile-avatar" 
+            />
             <div className="profile-actions-row">
               {user ? (
                 <>

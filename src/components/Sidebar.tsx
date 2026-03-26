@@ -6,6 +6,7 @@ import { Compass, Book, User, Flame, Plus } from "lucide-react";
 import "./Sidebar.css";
 import { useSidebar } from "./LayoutWrapper";
 import { useAuth } from "@/context/AuthContext";
+import UserAvatar from "./UserAvatar";
 
 interface SidebarProps {
   minimized?: boolean;
@@ -14,7 +15,7 @@ interface SidebarProps {
 export default function Sidebar({ minimized = false }: SidebarProps) {
   const pathname = usePathname();
   const { setIsNewPostModalOpen } = useSidebar();
-  const { user, login } = useAuth();
+  const { user, userProfile, login } = useAuth();
 
   const navItems = [
     { name: "Explore", href: "/", icon: Compass },
@@ -42,6 +43,9 @@ export default function Sidebar({ minimized = false }: SidebarProps) {
       <nav className="sidebar-nav">
         {navItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+          const isProfile = item.href === "/profile";
+          const showAvatar = isProfile && user;
+          
           return (
             <Link 
               key={item.href} 
@@ -49,7 +53,17 @@ export default function Sidebar({ minimized = false }: SidebarProps) {
               className={`nav-link ${isActive ? "active" : ""}`}
               title={minimized ? item.name : ""}
             >
-              <item.icon className="nav-icon" />
+              {showAvatar ? (
+                <UserAvatar 
+                  uid={user.uid} 
+                  initials={userProfile?.name?.split(/\s+/).filter(Boolean).map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || "U"}
+                  photoURL={userProfile?.avatar || user.photoURL || ""}
+                  name={userProfile?.name || user.displayName || "User"}
+                  className="sidebar-avatar"
+                />
+              ) : (
+                <item.icon className="nav-icon" />
+              )}
               {!minimized && <span className="nav-label">{item.name}</span>}
             </Link>
           );
